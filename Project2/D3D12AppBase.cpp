@@ -1,6 +1,13 @@
 #include "D3D12AppBase.h"
 #include <exception>
 #include <fstream>
+#if _MSC_VER > 1922
+#define _SILENCE_EXPERIMENTAL_FILESYSTEM_DEPRECATION_WARNING
+#endif
+#include <experimental/filesystem>
+#include <dxcapi.h>
+#pragma comment(lib, "dxcompiler.lib")
+
 
 D3D12AppBase::D3D12AppBase()
 {
@@ -324,4 +331,58 @@ void D3D12AppBase::WaitPreviousFrame() {
 		m_frameFences[nextIndex]->SetEventOnCompletion(finishExpected, m_fenceWaitEvent);
 		WaitForSingleObject(m_fenceWaitEvent, GpuWaitTimeout);
 	}
+}
+
+HRESULT D3D12AppBase::CompileShaderFromFile(
+	const std::wstring& fileName, const std::wstring& profile, ComPtr<ID3DBlob>& shaderBlob, ComPtr<ID3DBlob>& errorBlob)
+{
+	using namespace std::experimental::filesystem;
+
+	path filePath(fileName);
+	std::ifstream infile(filePath);
+	std::vector<char> srcData;
+	if (!infile)
+		throw std::runtime_error("shader not found");
+	srcData.resize(uint32_t(infile.seekg(0, infile.end).tellg()));
+	infile.seekg(0, infile.beg).read(srcData.data(), srcData.size());
+
+	// DXC によるコンパイル処理
+	ComPtr<IDxcLibrary> library;
+	ComPtr<IDxcCompiler> compiler;
+	ComPtr<IDxcBlobEncoding> source;
+	ComPtr<IDxcOperationResult> dxcResult;
+
+	DxcCreateInstance(CLSID_DxcLibrary, IID_PPV_ARGS(&library));
+	library->CreateBlobWithEncodingFromPinned(srcData.data(), UINT(srcData.size()), CP_ACP, &source);
+	DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&compiler));
+
+	LPCWSTR compilerFlags[] = {
+  #if _DEBUG
+	  L"/Zi", L"/O0",
+  #else
+	  L"/O2" // リリースビルドでは最適化
+  #endif
+	};
+	compiler->Compile(source.Get(), filePath.wstring().c_str(),
+		L"main", profile.c_str(),
+		compilerFlags, _countof(compilerFlags),
+		nullptr, 0, // Defines
+		nullptr,
+		&dxcResult);
+
+	HRESULT hr;
+	dxcResult->GetStatus(&hr);
+	if (SUCCEEDED(hr))
+	{
+		dxcResult->GetResult(
+			reinterpret_cast<IDxcBlob**>(shaderBlob.GetAddressOf())
+		);
+	}
+	else
+	{
+		dxcResult->GetErrorBuffer(
+			reinterpret_cast<IDxcBlobEncoding**>(errorBlob.GetAddressOf())
+		);
+	}
+	return hr;
 }

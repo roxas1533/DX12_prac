@@ -6,6 +6,7 @@
 #include <dxgi1_6.h>
 #include <wrl.h>
 #include "d3dx12.h"
+#include <dxgi1_6.h>
 
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
@@ -35,8 +36,8 @@ protected:
 	void CreateCommandAllocators();
 	void CreateFrameFences();
 	void WaitPreviousFrame();
-	//HRESULT CompileShaderFromFile(
-	//	const std::wstring& fileName, const std::wstring& profile, ComPtr<ID3DBlob>& shaderBlob, ComPtr<ID3DBlob>& errorBlob);
+	HRESULT CompileShaderFromFile(
+		const std::wstring& fileName, const std::wstring& profile, ComPtr<ID3DBlob>& shaderBlob, ComPtr<ID3DBlob>& errorBlob);
 
 	ComPtr<ID3D12Device> m_device;
 	ComPtr<ID3D12CommandQueue> m_commandQueue;

@@ -1,6 +1,6 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
-#include "D3D12AppBase.h"
+#include "TriangleApp.h"
 #include <stdexcept>
 
 const int WINDOW_WIDTH = 640;
@@ -26,7 +26,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp)
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
 {
-    D3D12AppBase theApp{};
+    TriangleApp theApp{};
 
     WNDCLASSEX wc{};
     wc.cbSize = sizeof(wc);
