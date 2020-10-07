@@ -60,7 +60,6 @@ void D3D12AppBase::Initialize(HWND hwnd) {
 			if (desc1.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)
 				continue;
 
-			// D3D12は使用可能か
 			hr = D3D12CreateDevice(
 				adapter.Get(),
 				D3D_FEATURE_LEVEL_11_0,
@@ -139,12 +138,12 @@ void D3D12AppBase::Initialize(HWND hwnd) {
 		nullptr,
 		IID_PPV_ARGS(&m_commandList)
 	);
-	m_commandList->Close();
 
 	m_viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, float(width), float(height));
 	m_scissorRect = CD3DX12_RECT(0, 0, LONG(width), LONG(height));
 
 	Prepare();
+
 }
 
 
@@ -320,8 +319,7 @@ void D3D12AppBase::WaitPreviousFrame() {
 	const auto currentValue = ++m_frameFenceValues[m_frameIndex];
 	m_commandQueue->Signal(fence.Get(), currentValue);
 
-	// 次処理するコマンド（アロケータ－）のものは実行完了済みかを、
-	// 対になっているフェンスで確認する.
+	
 	auto nextIndex = (m_frameIndex + 1) % FrameBufferCount;
 	const auto finishExpected = m_frameFenceValues[nextIndex];
 	const auto nextFenceValue = m_frameFences[nextIndex]->GetCompletedValue();

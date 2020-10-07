@@ -148,6 +148,7 @@
   <ItemGroup>
     <ClInclude Include="D3D12AppBase.h" />
     <ClInclude Include="d3dx12.h" />
+    <ClInclude Include="stb_image.h" />
     <ClInclude Include="TriangleApp.h" />
   </ItemGroup>
   <ItemGroup>

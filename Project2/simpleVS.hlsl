@@ -2,11 +2,13 @@ struct VSInput
 {
 	float4 Position : POSITION;
 	float4 Color : COLOR;
+	float2 UV : TEXCOORD0;
 };
 struct VSOutput
 {
 	float4 Position : SV_POSITION;
 	float4 Color : COLOR;
+	float2 UV : TEXCOORD0;
 };
 
 cbuffer ShaderParameter : register(b0)
@@ -22,5 +24,6 @@ VSOutput main(VSInput In)
 	float4x4 mtxWVP = mul(world, mul(view, proj));
 	result.Position = mul(In.Position, mtxWVP);
 	result.Color = In.Color;
+	result.UV = In.UV;
 	return result;
 }
