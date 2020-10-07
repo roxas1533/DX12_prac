@@ -170,6 +170,7 @@ void TriangleApp::Prepare() {
 		m_device->CreateConstantBufferView(&cbDesc, handleCBV);
 		m_cbViews[i] = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_heapCbv->GetGPUDescriptorHandleForHeapStart(),  1+i, m_srvcbvDescriptorSize);
 	}
+	//テクスチャの生成
 	//------------------------------------------------------------------------------------
 	using namespace DirectX;
 	TexMetadata metadata;
@@ -188,9 +189,27 @@ void TriangleApp::Prepare() {
 		&CD3DX12_RESOURCE_DESC::Buffer(totalBytes), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&textureUploadHeap));
 
 	UpdateSubresources(m_commandList.Get(), m_texture.Get(), textureUploadHeap.Get(), 0, 0, static_cast<UINT>(subresources.size()), subresources.data());
-	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_texture.Get(), D3D12_RESOURCE_STATE_COPY_DEST,
+
+	ComPtr<ID3D12GraphicsCommandList> command;
+	m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_commandAllocators[m_frameIndex].Get(), nullptr, IID_PPV_ARGS(&command));
+	ComPtr<ID3D12Fence1> fence;
+	m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
+
+
+	command->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_texture.Get(), D3D12_RESOURCE_STATE_COPY_DEST,
 		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
-	m_commandList->Close();
+	command->Close();
+
+	ID3D12CommandList* cmds[] = { command.Get() };
+	m_commandQueue->ExecuteCommandLists(1, cmds);
+	const UINT64 expected = 1;
+	m_commandQueue->Signal(fence.Get(), expected);
+
+	while (expected != fence->GetCompletedValue())
+	{
+		Sleep(1);
+	}
+
 	//m_texture = CreateTexture("texture.tga");
 	//---------------------------------------------------------------------------------------
 	// サンプラーの生成

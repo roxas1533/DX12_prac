@@ -138,7 +138,7 @@ void D3D12AppBase::Initialize(HWND hwnd) {
 		nullptr,
 		IID_PPV_ARGS(&m_commandList)
 	);
-
+	m_commandList->Close();
 	m_viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, float(width), float(height));
 	m_scissorRect = CD3DX12_RECT(0, 0, LONG(width), LONG(height));
 
