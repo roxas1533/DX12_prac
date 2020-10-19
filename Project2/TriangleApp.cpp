@@ -2,6 +2,7 @@
 #include <stdexcept>
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+
 void TriangleApp::Prepare() {
 	const float k = 1.0f;
 	const DirectX::XMFLOAT4 red(1.0f, 0.0f, 0.0f, 1.0f);
@@ -172,43 +173,18 @@ void TriangleApp::Prepare() {
 	}
 	//テクスチャの生成
 	//------------------------------------------------------------------------------------
-	using namespace DirectX;
-	TexMetadata metadata;
-	ScratchImage image;
-	LoadFromTGAFile(L"texture.tga", &metadata, image);
+	m_texture = CreateTexture("texture2.tga");
 
-	std::vector<D3D12_SUBRESOURCE_DATA> subresources;
-
-	DirectX::CreateTexture(m_device.Get(), metadata, &m_texture);
-
-
-	PrepareUpload(m_device.Get(), image.GetImages(), image.GetImageCount(), metadata, subresources);
-	const auto totalBytes = GetRequiredIntermediateSize(m_texture.Get(), 0, subresources.size());
-
-	 m_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE,
-		&CD3DX12_RESOURCE_DESC::Buffer(totalBytes), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&textureUploadHeap));
-
-	UpdateSubresources(m_commandList.Get(), m_texture.Get(), textureUploadHeap.Get(), 0, 0, static_cast<UINT>(subresources.size()), subresources.data());
-
-	ComPtr<ID3D12GraphicsCommandList> command;
-	m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_commandAllocators[m_frameIndex].Get(), nullptr, IID_PPV_ARGS(&command));
-	ComPtr<ID3D12Fence1> fence;
-	m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
-
-
-	command->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_texture.Get(), D3D12_RESOURCE_STATE_COPY_DEST,
-		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
-	command->Close();
-
-	ID3D12CommandList* cmds[] = { command.Get() };
-	m_commandQueue->ExecuteCommandLists(1, cmds);
-	const UINT64 expected = 1;
-	m_commandQueue->Signal(fence.Get(), expected);
-
-	while (expected != fence->GetCompletedValue())
-	{
-		Sleep(1);
-	}
+	//auto descriptorSRV = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_heapCbv->GetCPUDescriptorHandleForHeapStart(), 0, m_srvcbvDescriptorSize););
+	//D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
+	//srvDesc.Format = metadata.format;
+	//srvDesc.TextureCube.MipLevels = UINT(metadata.mipLevels);
+	//srvDesc.TextureCube.MostDetailedMip = 0;
+	//srvDesc.TextureCube.ResourceMinLODClamp = 0;
+	//srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	//srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+	//m_device->CreateShaderResourceView(cubemap.Get(), &srvDesc, descriptorSRV);
+	//m_srv = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_heapCbv->GetGPUDescriptorHandleForHeapStart(), 0, m_srvcbvDescriptorSize);
 
 	//m_texture = CreateTexture("texture.tga");
 	//---------------------------------------------------------------------------------------
@@ -232,14 +208,14 @@ void TriangleApp::Prepare() {
 	m_device->CreateSampler(&samplerDesc, descriptorSampler);
 	m_sampler = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_heapSampler->GetGPUDescriptorHandleForHeapStart(), 0, m_samplerDescriptorSize);
 
-	// テクスチャからシェーダーリソースビューの準備.
+	 //テクスチャからシェーダーリソースビューの準備.
 	auto srvHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_heapCbv->GetCPUDescriptorHandleForHeapStart(), 0, m_srvcbvDescriptorSize);
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
-	srvDesc.Texture2D.MipLevels = metadata.mipLevels;
-	srvDesc.Format = metadata.format;
+	srvDesc.Texture2D.MipLevels = 1;
+	srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	m_device->CreateShaderResourceView(m_texture.Get(), &srvDesc,srvHandle);
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING; 
+	m_device->CreateShaderResourceView(m_texture.Get(), &srvDesc, srvHandle);
 	m_srv = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_heapCbv->GetGPUDescriptorHandleForHeapStart(), 0, m_srvcbvDescriptorSize);
 }
 
@@ -284,7 +260,7 @@ void TriangleApp::MakeCommand(ComPtr<ID3D12GraphicsCommandList>& command)
 	// ビューポートとシザーのセット
 	command->RSSetViewports(1, &m_viewport);
 	command->RSSetScissorRects(1, &m_scissorRect);
-	command->DiscardResource(textureUploadHeap.Get(), nullptr);
+	//command->DiscardResource(textureUploadHeap.Get(), nullptr);
 
 	// ディスクリプタヒープをセット.
 	ID3D12DescriptorHeap* heaps[] = {
@@ -332,28 +308,28 @@ TriangleApp::ComPtr<ID3D12Resource1> TriangleApp::CreateBuffer(UINT bufferSize, 
 	return buffer;
 }
 
-TriangleApp::ComPtr<ID3D12Resource> TriangleApp::CreateTexture(const wchar_t* name) {
-	using namespace DirectX;
-	ComPtr<ID3D12Resource> texture;
-	TexMetadata metadata;
-	ScratchImage image;
-	LoadFromTGAFile(name, &metadata, image);
-	std::vector<D3D12_SUBRESOURCE_DATA> subresources;
-
-	DirectX::CreateTexture(m_device.Get(), metadata, &texture);
-
-	PrepareUpload(m_device.Get(), image.GetImages(), image.GetImageCount(), metadata, subresources);
-	const auto totalBytes = GetRequiredIntermediateSize(texture.Get(),0, subresources.size());
-
-	m_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE,
-		&CD3DX12_RESOURCE_DESC::Buffer(totalBytes), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&textureUploadHeap));
-
-	UpdateSubresources(m_commandList.Get(), texture.Get(), textureUploadHeap.Get(), 0, 0, static_cast<UINT>(subresources.size()), subresources.data());
-	m_commandList->ResourceBarrier(1,&CD3DX12_RESOURCE_BARRIER::Transition(texture.Get(),D3D12_RESOURCE_STATE_COPY_DEST,
-			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
-
-	return texture;
-}
+//TriangleApp::ComPtr<ID3D12Resource> TriangleApp::CreateTexture(const wchar_t* name) {
+//	using namespace DirectX;
+//	ComPtr<ID3D12Resource> texture;
+//	TexMetadata metadata;
+//	ScratchImage image;
+//	LoadFromTGAFile(name, &metadata, image);
+//	std::vector<D3D12_SUBRESOURCE_DATA> subresources;
+//
+//	DirectX::CreateTexture(m_device.Get(), metadata, &texture);
+//
+//	PrepareUpload(m_device.Get(), image.GetImages(), image.GetImageCount(), metadata, subresources);
+//	const auto totalBytes = GetRequiredIntermediateSize(texture.Get(),0, subresources.size());
+//
+//	m_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE,
+//		&CD3DX12_RESOURCE_DESC::Buffer(totalBytes), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&textureUploadHeap));
+//
+//	UpdateSubresources(m_commandList.Get(), texture.Get(), textureUploadHeap.Get(), 0, 0, static_cast<UINT>(subresources.size()), subresources.data());
+//	m_commandList->ResourceBarrier(1,&CD3DX12_RESOURCE_BARRIER::Transition(texture.Get(),D3D12_RESOURCE_STATE_COPY_DEST,
+//			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+//
+//	return texture;
+//}
 
 TriangleApp::ComPtr<ID3D12Resource1> TriangleApp::CreateTexture(const std::string& fileName)
 {
@@ -468,4 +444,18 @@ void TriangleApp::PrepareDescriptorHeapForCubeApp(){
 	m_device->CreateDescriptorHeap(&samplerHeapDesc, IID_PPV_ARGS(&m_heapSampler));
 	m_samplerDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
 
+}
+
+void TriangleApp::WaitGPU()
+{
+	HRESULT hr;
+	const auto finishExpected = m_frameFenceValues[m_frameIndex];
+	hr = m_commandQueue->Signal(m_frameFences[m_frameIndex].Get(), finishExpected);
+	if (FAILED(hr))
+	{
+		throw std::runtime_error("Failed Signal(WaitGPU)");
+	}
+	m_frameFences[m_frameIndex]->SetEventOnCompletion(finishExpected, m_fenceWaitEvent);
+	WaitForSingleObject(m_fenceWaitEvent, GpuWaitTimeout);
+	m_frameFenceValues[m_frameIndex] = finishExpected + 1;
 }

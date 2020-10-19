@@ -6,10 +6,11 @@
 #include <dxgi1_6.h>
 #include <wrl.h>
 #include "d3dx12.h"
+#include "DescriptorManager.h"
 #include <dxgi1_6.h>
-
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
+#pragma comment(lib, "dxguid.lib")
 
 class D3D12AppBase
 {
@@ -36,9 +37,11 @@ protected:
 	void CreateCommandAllocators();
 	void CreateFrameFences();
 	void WaitPreviousFrame();
+	ComPtr<ID3D12CommandAllocator> m_oneshotCommandAllocator;
 	HRESULT CompileShaderFromFile(
 		const std::wstring& fileName, const std::wstring& profile, ComPtr<ID3DBlob>& shaderBlob, ComPtr<ID3DBlob>& errorBlob);
-
+	std::shared_ptr<DescriptorManager> m_heap;
+	std::shared_ptr<DescriptorManager> GetDescriptorManager() { return m_heap; }
 	ComPtr<ID3D12Device> m_device;
 	ComPtr<ID3D12CommandQueue> m_commandQueue;
 	ComPtr<IDXGISwapChain4> m_swapchain;

@@ -2,6 +2,8 @@
 #include "D3D12AppBase.h"
 #include <DirectXMath.h>
 #include < DirectXTex.h>
+#include <WICTextureLoader.h>
+
 class TriangleApp :
 	public D3D12AppBase
 {
@@ -32,11 +34,11 @@ private:
 	ComPtr<ID3D12Resource1> CreateBuffer(UINT buffersize, const void* intialData);
 	ComPtr<ID3D12Resource> CreateTexture(const wchar_t* name);
 	ComPtr<ID3D12Resource1> CreateTexture(const std::string& fileName);
-
+	void WaitGPU();
 	void PrepareDescriptorHeapForCubeApp();
 	ComPtr<ID3D12Resource1> m_vertexBuffer;
 	ComPtr<ID3D12Resource1> m_indexBuffer;
-	ComPtr<ID3D12Resource> m_texture;
+	ComPtr<ID3D12Resource1> m_texture;
 	ComPtr<ID3D12Resource> textureUploadHeap;
 	D3D12_VERTEX_BUFFER_VIEW  m_vertexBufferView;
 	ComPtr<ID3D12DescriptorHeap> m_heapSampler;
