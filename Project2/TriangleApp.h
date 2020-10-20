@@ -38,7 +38,7 @@ private:
 	void PrepareDescriptorHeapForCubeApp();
 	ComPtr<ID3D12Resource1> m_vertexBuffer;
 	ComPtr<ID3D12Resource1> m_indexBuffer;
-	ComPtr<ID3D12Resource1> m_texture;
+	ComPtr<ID3D12Resource> m_texture;
 	ComPtr<ID3D12Resource> textureUploadHeap;
 	D3D12_VERTEX_BUFFER_VIEW  m_vertexBufferView;
 	ComPtr<ID3D12DescriptorHeap> m_heapSampler;

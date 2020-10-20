@@ -173,7 +173,7 @@ void TriangleApp::Prepare() {
 	}
 	//テクスチャの生成
 	//------------------------------------------------------------------------------------
-	m_texture = CreateTexture("texture2.tga");
+	m_texture = CreateTexture(L"thinking_face.jpg");
 
 	//auto descriptorSRV = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_heapCbv->GetCPUDescriptorHandleForHeapStart(), 0, m_srvcbvDescriptorSize););
 	//D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
@@ -308,28 +308,70 @@ TriangleApp::ComPtr<ID3D12Resource1> TriangleApp::CreateBuffer(UINT bufferSize, 
 	return buffer;
 }
 
-//TriangleApp::ComPtr<ID3D12Resource> TriangleApp::CreateTexture(const wchar_t* name) {
-//	using namespace DirectX;
-//	ComPtr<ID3D12Resource> texture;
-//	TexMetadata metadata;
-//	ScratchImage image;
-//	LoadFromTGAFile(name, &metadata, image);
-//	std::vector<D3D12_SUBRESOURCE_DATA> subresources;
-//
-//	DirectX::CreateTexture(m_device.Get(), metadata, &texture);
-//
-//	PrepareUpload(m_device.Get(), image.GetImages(), image.GetImageCount(), metadata, subresources);
-//	const auto totalBytes = GetRequiredIntermediateSize(texture.Get(),0, subresources.size());
-//
-//	m_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE,
-//		&CD3DX12_RESOURCE_DESC::Buffer(totalBytes), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&textureUploadHeap));
-//
-//	UpdateSubresources(m_commandList.Get(), texture.Get(), textureUploadHeap.Get(), 0, 0, static_cast<UINT>(subresources.size()), subresources.data());
-//	m_commandList->ResourceBarrier(1,&CD3DX12_RESOURCE_BARRIER::Transition(texture.Get(),D3D12_RESOURCE_STATE_COPY_DEST,
-//			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
-//
-//	return texture;
-//}
+TriangleApp::ComPtr<ID3D12Resource> TriangleApp::CreateTexture(const wchar_t* name) {
+	using namespace DirectX;
+	CoInitializeEx(0, COINIT_MULTITHREADED);
+	ComPtr<ID3D12Resource1> staging;
+	HRESULT hr;
+	ScratchImage image;
+	TexMetadata metadata;
+	hr = LoadFromWICFile(name, 0, &metadata,image);
+	if (FAILED(hr))
+	{
+		throw std::runtime_error("Failed LoadFromWICMemory");
+	}
+	//const auto& metadata = image.GetMetadata();
+	std::vector<D3D12_SUBRESOURCE_DATA> subresources;
+	ComPtr<ID3D12Resource> texture;
+	DirectX::CreateTexture(m_device.Get(), metadata, &texture);
+	DirectX::PrepareUpload(
+		m_device.Get(), image.GetImages(), image.GetImageCount(),
+		metadata, subresources);
+
+	//ComPtr<ID3D12Resource> texture;
+	//DirectX::CreateTexture(m_device.Get(), metadata, &texture);
+
+	// ステージングバッファの準備
+	const auto totalBytes = GetRequiredIntermediateSize(texture.Get(), 0, UINT(subresources.size()));
+	m_device->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+		D3D12_HEAP_FLAG_NONE,
+		&CD3DX12_RESOURCE_DESC::Buffer(totalBytes),
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&staging)
+	);
+
+	// 転送処理
+	ComPtr<ID3D12GraphicsCommandList> command;
+	m_device->CreateCommandList(
+		0, D3D12_COMMAND_LIST_TYPE_DIRECT,
+		m_commandAllocators[m_frameIndex].Get(),
+		nullptr, IID_PPV_ARGS(&command));
+
+	UpdateSubresources(
+		command.Get(),
+		texture.Get(), staging.Get(),
+		0, 0, uint32_t(subresources.size()), subresources.data()
+	);
+
+	// リソースバリアのセット
+	auto barrierTex = CD3DX12_RESOURCE_BARRIER::Transition(
+		texture.Get(),
+		D3D12_RESOURCE_STATE_COPY_DEST,
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
+	);
+	command->ResourceBarrier(1, &barrierTex);
+
+	// コマンドの実行.
+	command->Close();
+	ID3D12CommandList* cmds[] = { command.Get() };
+	m_commandQueue->ExecuteCommandLists(1, cmds);
+	m_frameFenceValues[m_frameIndex]++;
+	WaitGPU();
+
+	return texture;
+}
 
 TriangleApp::ComPtr<ID3D12Resource1> TriangleApp::CreateTexture(const std::string& fileName)
 {

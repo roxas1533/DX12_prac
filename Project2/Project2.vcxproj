@@ -149,12 +149,21 @@
     <ClInclude Include="D3D12AppBase.h" />
     <ClInclude Include="d3dx12.h" />
     <ClInclude Include="DescriptorManager.h" />
+    <ClInclude Include="ModelApp.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="stb_image.h" />
+    <ClInclude Include="streamreader.h" />
     <ClInclude Include="TriangleApp.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="D3D12AppBase.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="ModelApp.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="TriangleApp.cpp" />
   </ItemGroup>
   <ItemGroup>
