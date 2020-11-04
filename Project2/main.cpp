@@ -1,7 +1,7 @@
 #define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <Windows.h>
-#include "TriangleApp.h"
-#include <stdexcept>
+#include "ModelApp.h"
 
 const int WINDOW_WIDTH = 640;
 const int WINDOW_HEIGHT = 480;
@@ -26,7 +26,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp)
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
 {
-    TriangleApp theApp{};
+    ModelApp theApp{};
+
+    CoInitializeEx(NULL, COINIT_MULTITHREADED);
 
     WNDCLASSEX wc{};
     wc.cbSize = sizeof(wc);
@@ -41,7 +43,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
     RECT rect = { 0,0, WINDOW_WIDTH, WINDOW_HEIGHT };
     AdjustWindowRect(&rect, dwStyle, FALSE);
 
-    auto hwnd = CreateWindow(wc.lpszClassName, L"DX12P",
+    auto hwnd = CreateWindow(wc.lpszClassName, L"DrawModel",
         dwStyle,
         CW_USEDEFAULT, CW_USEDEFAULT,
         rect.right - rect.left, rect.bottom - rect.top,
@@ -73,9 +75,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
     }
     catch (std::runtime_error e)
     {
-        DebugBreak();
         OutputDebugStringA(e.what());
         OutputDebugStringA("\n");
+        DebugBreak();
     }
     return 0;
 }
