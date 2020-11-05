@@ -147,14 +147,18 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="D3D12AppBase.h" />
+    <ClInclude Include="D3D12BookUtil.h" />
     <ClInclude Include="d3dx12.h" />
     <ClInclude Include="DescriptorManager.h" />
+    <ClInclude Include="DisplayHDR10App.h" />
     <ClInclude Include="ModelApp.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
     </ClInclude>
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="streamreader.h" />
+    <ClInclude Include="Swapchain.h" />
+    <ClInclude Include="TeapotModel.h" />
     <ClInclude Include="TriangleApp.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
@@ -162,11 +166,15 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="D3D12AppBase.cpp" />
+    <ClCompile Include="DisplayHDR10App.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="ModelApp.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="Swapchain.cpp" />
     <ClCompile Include="TriangleApp.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>

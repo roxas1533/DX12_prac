@@ -17,10 +17,10 @@ class ModelApp :
 {
 public:
     ModelApp() : D3D12AppBase() { }
+    void Render();
 
     virtual void Prepare() override;
     virtual void Cleanup() override;
-    virtual void MakeCommand(ComPtr<ID3D12GraphicsCommandList>& command) override;
 
     struct Vertex
     {
@@ -78,7 +78,6 @@ private:
         std::vector<ModelMesh> meshes;
         std::vector<Material>  materials;
     };
-    void WaitGPU();
 
     ComPtr<ID3D12Resource1> CreateBuffer(UINT bufferSize, const void* initialData);
     TextureObject CreateTextureFromMemory(const std::vector<char>& imageData);
@@ -87,6 +86,7 @@ private:
     void MakeModelMaterial(const Microsoft::glTF::Document& doc, std::shared_ptr<Microsoft::glTF::GLTFResourceReader> reader);
     ComPtr<ID3D12PipelineState> CreateOpaquePSO();
     ComPtr<ID3D12PipelineState> CreateAlphaPSO();
+
 
     ComPtr<ID3D12DescriptorHeap> m_heapSrvCbv;
     ComPtr<ID3D12DescriptorHeap> m_heapSampler;
@@ -104,5 +104,7 @@ private:
 
     ComPtr<ID3DBlob> m_vs;
     ComPtr<ID3DBlob> m_psOpaque, m_psAlpha;
+    UINT m_srvcbvDescriptorSize;
+
 };
 

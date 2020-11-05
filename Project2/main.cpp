@@ -54,7 +54,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
     );
     try
     {
-        theApp.Initialize(hwnd);
+        DXGI_FORMAT surfaceFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+
+        // HDR 出力時には以下のフォーマットを設定する。
+        //surfaceFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
+        //surfaceFormat = DXGI_FORMAT_R10G10B10A2_UNORM;
+
+        theApp.Initialize(hwnd, surfaceFormat, false);
 
         SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(&theApp));
         ShowWindow(hwnd, nCmdShow);

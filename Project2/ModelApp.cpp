@@ -1,4 +1,5 @@
 #include "ModelApp.h"
+#include "D3D12AppBase.h"
 #include "streamreader.h"
 #include <DirectXTex.h>
 
@@ -7,6 +8,7 @@ using namespace std;
 
 void ModelApp::Prepare()
 {
+    SetTitle("MODEL");
     // モデルデータの読み込み
     auto modelFilePath = experimental::filesystem::path("alicia-solid.vrm");
     if (modelFilePath.is_relative())
@@ -124,13 +126,24 @@ void ModelApp::Prepare()
 
 void ModelApp::Cleanup()
 {
-    WaitGPU();
+    WaitForIdleGPU();
 }
 
-void ModelApp::MakeCommand(ComPtr<ID3D12GraphicsCommandList>& command)
-{
-    using namespace DirectX;
-    using namespace Microsoft::glTF;
+void ModelApp::Render() {
+
+    m_frameIndex = m_swapchain->GetCurrentBackBufferIndex();
+    m_commandAllocators[m_frameIndex]->Reset();
+    m_commandList->Reset(
+        m_commandAllocators[m_frameIndex].Get(), nullptr
+    );
+   // ID3D12DescriptorHeap* heaps[] = { m_heap->GetHeap().Get() };
+  //  m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
+    auto barrierToRT = m_swapchain->GetBarrierToRenderTarget();
+    m_commandList->ResourceBarrier(1, &barrierToRT);
+    auto rtv = m_swapchain->GetCurrentRTV();
+    auto dsv = m_defaultDepthDSV;
+
+
 
     // 各行列のセット.
     ShaderParameters shaderParams;
@@ -154,18 +167,29 @@ void ModelApp::MakeCommand(ComPtr<ID3D12GraphicsCommandList>& command)
         constantBuffer->Unmap(0, nullptr);
     }
 
-    // ルートシグネチャのセット
-    command->SetGraphicsRootSignature(m_rootSignature.Get());
+
+    const float clearColor[] = {
+    0.0f, 0.0f, 0.0f, 0.0f
+    };
+    m_commandList->ClearRenderTargetView(rtv, clearColor, 0, nullptr);
+    m_commandList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+
+    m_commandList->OMSetRenderTargets(1, &(D3D12_CPU_DESCRIPTOR_HANDLE)rtv,
+        FALSE, &(D3D12_CPU_DESCRIPTOR_HANDLE)dsv);
+
+    m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
     // ビューポートとシザーのセット
-    command->RSSetViewports(1, &m_viewport);
-    command->RSSetScissorRects(1, &m_scissorRect);
+    m_commandList->RSSetViewports(1, &m_viewport);
+    m_commandList->RSSetScissorRects(1, &m_scissorRect);
 
     // ディスクリプタヒープをセット.
     ID3D12DescriptorHeap* heaps[] = {
       m_heapSrvCbv.Get(), m_heapSampler.Get()
     };
-    command->SetDescriptorHeaps(_countof(heaps), heaps);
+    m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
 
+    using namespace DirectX;
+    using namespace Microsoft::glTF;
     for (auto mode : { ALPHA_OPAQUE, ALPHA_MASK, ALPHA_BLEND })
     {
         for (const auto& mesh : m_model.meshes)
@@ -180,45 +204,42 @@ void ModelApp::MakeCommand(ComPtr<ID3D12GraphicsCommandList>& command)
             switch (mode)
             {
             case Microsoft::glTF::ALPHA_OPAQUE:
-                command->SetPipelineState(m_pipelineOpaque.Get());
+                m_commandList->SetPipelineState(m_pipelineOpaque.Get());
                 break;
             case Microsoft::glTF::ALPHA_MASK:
-                command->SetPipelineState(m_pipelineOpaque.Get());
+                m_commandList->SetPipelineState(m_pipelineOpaque.Get());
                 break;
             case Microsoft::glTF::ALPHA_BLEND:
-                command->SetPipelineState(m_pipelineAlpha.Get());
+                m_commandList->SetPipelineState(m_pipelineAlpha.Get());
                 break;
             }
 
             // プリミティブタイプ、頂点・インデックスバッファのセット
-            command->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-            command->IASetVertexBuffers(0, 1, &mesh.vertexBuffer.vertexView);
-            command->IASetIndexBuffer(&mesh.indexBuffer.indexView);
+            m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            m_commandList->IASetVertexBuffers(0, 1, &mesh.vertexBuffer.vertexView);
+            m_commandList->IASetIndexBuffer(&mesh.indexBuffer.indexView);
 
-            command->SetGraphicsRootDescriptorTable(0, m_cbViews[m_frameIndex]);
-            command->SetGraphicsRootDescriptorTable(1, material.shaderResourceView);
-            command->SetGraphicsRootDescriptorTable(2, m_sampler);
+            m_commandList->SetGraphicsRootDescriptorTable(0, m_cbViews[m_frameIndex]);
+            m_commandList->SetGraphicsRootDescriptorTable(1, material.shaderResourceView);
+            m_commandList->SetGraphicsRootDescriptorTable(2, m_sampler);
 
             // このメッシュを描画
-            command->DrawIndexedInstanced(mesh.indexCount, 1, 0, 0, 0);
+            m_commandList->DrawIndexedInstanced(mesh.indexCount, 1, 0, 0, 0);
         }
     }
 
+    // レンダーターゲットからスワップチェイン表示可能へ
+    auto barrierToPresent = m_swapchain->GetBarrierToPresent();
+    m_commandList->ResourceBarrier(1, &barrierToPresent);
+
+    m_commandList->Close();
+    ID3D12CommandList* lists[] = { m_commandList.Get() };
+    m_commandQueue->ExecuteCommandLists(1, lists);
+
+    m_swapchain->Present(1, 0);
+    m_swapchain->WaitPreviousFrame(m_commandQueue, m_frameIndex, GpuWaitTimeout);
 }
 
-void ModelApp::WaitGPU()
-{
-    HRESULT hr;
-    const auto finishExpected = m_frameFenceValues[m_frameIndex];
-    hr = m_commandQueue->Signal(m_frameFences[m_frameIndex].Get(), finishExpected);
-    if (FAILED(hr))
-    {
-        throw std::runtime_error("Failed Signal(WaitGPU)");
-    }
-    m_frameFences[m_frameIndex]->SetEventOnCompletion(finishExpected, m_fenceWaitEvent);
-    WaitForSingleObject(m_fenceWaitEvent, GpuWaitTimeout);
-    m_frameFenceValues[m_frameIndex] = finishExpected + 1;
-}
 ModelApp::ComPtr<ID3D12Resource1> ModelApp::CreateBuffer(UINT bufferSize, const void* initialData)
 {
     HRESULT hr;
@@ -305,8 +326,7 @@ ModelApp::TextureObject ModelApp::CreateTextureFromMemory(const std::vector<char
     command->Close();
     ID3D12CommandList* cmds[] = { command.Get() };
     m_commandQueue->ExecuteCommandLists(1, cmds);
-    m_frameFenceValues[m_frameIndex]++;
-    WaitGPU();
+    WaitForIdleGPU();
 
     TextureObject ret;
     texture.As(&ret.texture);
